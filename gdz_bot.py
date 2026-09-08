@@ -7,8 +7,14 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # ================= НАСТРОЙКИ КЛЮЧЕЙ =================
+# Твои реальные ключи уже вписаны сюда:
 TELEGRAM_BOT_TOKEN = "8868901043:AAFxArEHuWiIoS-WdxhEJujYRMrac6tiGt0"
-PROXY_API_KEY = "sk-lLJox1FKfolbZOyZX9EIqXUB0qPYLUX2"
+PROXY_API_KEY = "sk-lLJox1FKfolbZoYzx9EIqXUB0qPYLUX2"
+
+# 🔒 БЕЛЫЙ СПИСОК: Вставь сюда СВОЙ ID из @userinfobot вместо 123456789
+ALLOWED_USERS = [
+    5007562437  # 👈 ВСТАВЬ СВОИ ЦИФРЫ СЮДА (без кавычек)
+]
 # ===================================================
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
@@ -35,11 +41,18 @@ SYSTEM_PROMPT = """
 5. Язык: Русский. Текст должен быть компактным, чтобы легко переписать в тетрадь за 2 минуты.
 """
 
+def is_authorized(user_id):
+    return user_id in ALLOWED_USERS
+
 def encode_image(image_bytes):
     return base64.b64encode(image_bytes).decode('utf-8')
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
+    if not is_authorized(message.from_user.id):
+        bot.reply_to(message, "⛔️ Доступ ограничен. Этот бот является приватным.")
+        return
+
     bot.reply_to(
         message, 
         "⚡ *W1zarD School Fast-Pass Bot [VISION]*\n\n"
@@ -52,6 +65,10 @@ def send_welcome(message):
 
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
+    if not is_authorized(message.from_user.id):
+        bot.reply_to(message, "⛔️ Доступ ограничен. Этот бот является приватным.")
+        return
+
     status_msg = bot.reply_to(message, "⏳ Считываю фото и пишу чистовик...")
     try:
         file_info = bot.get_file(message.photo[-1].file_id)
@@ -102,6 +119,11 @@ def handle_photo(message):
 def handle_text(message):
     if message.text.startswith('/'):
         return
+
+    if not is_authorized(message.from_user.id):
+        bot.reply_to(message, "⛔️ Доступ ограничен. Этот бот является приватным.")
+        return
+
     status_msg = bot.reply_to(message, "⏳ Секунду, пишу чистовик...")
     
     headers = {
@@ -132,7 +154,6 @@ def handle_text(message):
     except Exception as e:
         bot.edit_message_text(f"❌ Ошибка соединения: {e}", message.chat.id, status_msg.message_id)
 
-# Простейший веб-сервер для прохождения health check на Render Web Service
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -148,10 +169,8 @@ def run_web_server():
     server.serve_forever()
 
 if __name__ == "__main__":
-    # 1. Запуск веб-сервера в фоне
     web_thread = threading.Thread(target=run_web_server, daemon=True)
     web_thread.start()
     
-    # 2. Запуск телеграм-бота
-    print("🚀 Безотказный VISION-бот запущен 24/7!")
+    print("🚀 Безотказный VISION-бот с фейсконтролем запущен 24/7!")
     bot.infinity_polling()
